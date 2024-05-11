@@ -25,17 +25,18 @@ import com.google.gson.Gson;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
-import java.util.Random;
 import java.util.stream.Collectors;
 
 public class MainActivity extends AppCompatActivity {
     GlobalStates states;
     Utils.LoopHandle scoreLoop;
 
+    Button startButton;
+    ProgressBar startLoading;
+    ProgressBar startProgress;
     RecyclerView scoreList;
     ScoreAdapter scoreAdapter;
 
@@ -58,21 +59,27 @@ public class MainActivity extends AppCompatActivity {
         TextView textView = findViewById(R.id.main_text_user);
         textView.setText(states.userName);
 
-        Button startButton = findViewById(R.id.main_button_start);
+        startButton = findViewById(R.id.main_button_start);
         startButton.setVisibility(View.GONE);
         startButton.setOnClickListener(view -> {
-            if (states.scores == null)
-                return;
-            ScoreObj.Score score = new ScoreObj.Score();
-            score.username = states.userName;
-            score.score = new Random().nextDouble();
-            states.scores.scores.add(score);
-            states.scores.scores.sort(Comparator.comparingDouble(o -> -o.score));
-            Fetches.putScores(this, getString(R.string.jsonbin_access_key), states.scores,
-                    null, null);
+            Intent intent = new Intent(this, QuizActivity.class);
+            startActivity(intent);
+            finish();
+
+//            if (states.scores == null)
+//                return;
+//            ScoreObj.Score score = new ScoreObj.Score();
+//            score.username = states.userName;
+//            score.score = new Random().nextDouble();
+//            states.scores.scores.add(score);
+//            states.scores.scores.sort(Comparator.comparingDouble(o -> -o.score));
+//            Fetches.putScores(this, getString(R.string.jsonbin_access_key), states.scores,
+//                    null, null);
         });
 
-        ProgressBar questionProgress = findViewById(R.id.main_progress_questions);
+        startLoading = findViewById(R.id.main_loading_questions);
+        startProgress = findViewById(R.id.main_progress_questions);
+        startProgress.setVisibility(View.GONE);
 
         scoreList = findViewById(R.id.main_list_score);
         scoreAdapter = new ScoreAdapter();
@@ -82,99 +89,83 @@ public class MainActivity extends AppCompatActivity {
                 scoreList.getContext(), DividerItemDecoration.HORIZONTAL);
         scoreList.addItemDecoration(dividerItemDecoration);
 
+        if (states.questions == null) {
+            try {
+                String oldQuestionStr = Utils.readAllText(this, "questions.json");
+                Gson gson = new Gson();
+                states.questions = gson.fromJson(oldQuestionStr, QuestionObj.class);
+            } catch (FileNotFoundException ignored) {
+            } catch (IOException e) {
+                Toast.makeText(this, "Load questions from local failed", Toast.LENGTH_SHORT).show();
+            }
+        }
+
         Fetches.questions(this, getString(R.string.jsonbin_access_key),
                 (questions, text) -> {
-                    try {
-                        String oldQuestionStr = Utils.readAllText(this, "questions.json");
-                        Gson gson = new Gson();
-                        QuestionObj oldQuestions = gson.fromJson(oldQuestionStr, QuestionObj.class);
-                        if (oldQuestions.version >= questions.version) {
-                            states.questions = oldQuestions;
-                            startButton.setVisibility(View.VISIBLE);
-                            questionProgress.setVisibility(View.GONE);
-                            return;
-                        }
-                        AlertDialog dialog = new AlertDialog.Builder(this).create();
-                        dialog.setTitle("New questions found!");
-                        dialog.setMessage("New questions found, do you want to download them?");
-                        dialog.setIcon(R.drawable.ic_user);
-                        dialog.setCancelable(true);
-                        dialog.setButton(DialogInterface.BUTTON_POSITIVE, "Yes", (v, w) -> {
-                            try {
-                                Utils.writeAllText(this, "questions.json", text);
-                            } catch (IOException e) {
-                                e.printStackTrace();
-                                Toast.makeText(this, "Failed to save questions", Toast.LENGTH_SHORT).show();
-                            }
-                            states.questions = questions;
-                            startButton.setVisibility(View.VISIBLE);
-                            questionProgress.setVisibility(View.GONE);
-                        });
-                        dialog.setButton(DialogInterface.BUTTON_NEGATIVE, "No", (v, w) -> {
-                            states.questions = oldQuestions;
-                            startButton.setVisibility(View.VISIBLE);
-                            questionProgress.setVisibility(View.GONE);
-                        });
-                        dialog.setOnCancelListener(v -> {
-                            states.questions = oldQuestions;
-                            startButton.setVisibility(View.VISIBLE);
-                            questionProgress.setVisibility(View.GONE);
-                        });
-                        dialog.show();
-                    } catch (FileNotFoundException e) {
-                        try {
-                            Utils.writeAllText(this, "questions.json", text);
-                            states.questions = questions;
-                            startButton.setVisibility(View.VISIBLE);
-                            questionProgress.setVisibility(View.GONE);
-                        } catch (IOException ex) {
-                            e.printStackTrace();
-                            Toast.makeText(this, "Failed to save questions", Toast.LENGTH_SHORT).show();
-                            states.questions = questions;
-                            startButton.setVisibility(View.VISIBLE);
-                            questionProgress.setVisibility(View.GONE);
-                        }
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                        Toast.makeText(this, "Failed to load questions", Toast.LENGTH_SHORT).show();
-                        states.questions = questions;
-                        startButton.setVisibility(View.VISIBLE);
-                        questionProgress.setVisibility(View.GONE);
+                    if (states.questions == null) {
+                        useNewQuestions(questions);
+                        return;
                     }
+
+                    if (states.questions.version >= questions.version) {
+                        useOldQuestions();
+                        return;
+                    }
+
+                    AlertDialog dialog = new AlertDialog.Builder(this).create();
+                    dialog.setTitle("New questions found!");
+                    dialog.setMessage("New questions found, do you want to download them?");
+                    dialog.setIcon(R.drawable.ic_user);
+                    dialog.setCancelable(true);
+                    dialog.setButton(DialogInterface.BUTTON_POSITIVE, "Yes",
+                            (v, w) -> useNewQuestions(questions));
+                    dialog.setButton(DialogInterface.BUTTON_NEGATIVE, "No",
+                            (v, w) -> useOldQuestions());
+                    dialog.setOnCancelListener(v -> useOldQuestions());
+                    dialog.show();
                 },
                 e -> {
-                    startButton.setVisibility(View.VISIBLE);
-                    questionProgress.setVisibility(View.GONE);
                     Toast.makeText(this, "Failed to fetch questions", Toast.LENGTH_SHORT).show();
+                    useOldQuestions();
                 });
+    }
+
+    private void useOldQuestions() {
+        startButton.setVisibility(View.VISIBLE);
+        startLoading.setVisibility(View.GONE);
+    }
+
+    private void useNewQuestions(QuestionObj questions) {
+        startProgress.setMax(questions.questions.size() * 2);
+        startProgress.setVisibility(View.VISIBLE);
+        startLoading.setVisibility(View.GONE);
+
+        DownloadQuestionsTask task = new DownloadQuestionsTask(this);
+        task.execute(questions);
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        Runnable runnable = () -> {
-            Fetches.scores(this, getString(R.string.jsonbin_access_key),
-                    (scores, text) -> {
-                        states.scores = scores;
-                        scoreAdapter.setScores(
-                                scores.scores.stream().limit(10).collect(Collectors.toList()));
-                        for (ScoreObj.Score score : scores.scores) {
-                            if (!Objects.equals(score.username, states.userName))
-                                continue;
-                            TextView scoreText = findViewById(R.id.main_text_score);
-                            scoreText.setText(String.format(Locale.ENGLISH, "%.2f", score.score));
-                            TextView correctText = findViewById(R.id.main_text_correct);
-                            correctText.setText(String.valueOf(score.correct_answers));
-                            TextView hintText = findViewById(R.id.main_text_hint);
-                            hintText.setText(String.valueOf(score.hint_used));
-                            TextView timeText = findViewById(R.id.main_text_time);
-                            timeText.setText(String.format(Locale.ENGLISH, "%.2f", score.time_left));
-                            break;
-                        }
-                    },
-                    e -> Toast.makeText(this, "Failed to fetch scores", Toast.LENGTH_SHORT).show());
-        };
-
+        Runnable runnable = () -> Fetches.scores(this, getString(R.string.jsonbin_access_key),
+                (scores, text) -> {
+                    states.scores = scores;
+                    scoreAdapter.setScores(
+                            scores.scores.stream().limit(10).collect(Collectors.toList()));
+                    for (ScoreObj.Score score : scores.scores) {
+                        if (!Objects.equals(score.username, states.userName))
+                            continue;
+                        TextView scoreText = findViewById(R.id.main_text_score);
+                        scoreText.setText(String.format(Locale.ENGLISH, "%.2f", score.score));
+                        TextView correctText = findViewById(R.id.main_text_correct);
+                        correctText.setText(String.valueOf(score.correct_answers));
+                        TextView hintText = findViewById(R.id.main_text_hint);
+                        hintText.setText(String.valueOf(score.hint_used));
+                        TextView timeText = findViewById(R.id.main_text_time);
+                        timeText.setText(String.format(Locale.ENGLISH, "%.2f", score.time_left));
+                        break;
+                    }
+                }, null);
         runnable.run();
         scoreLoop = new Utils.LoopHandle(runnable, 10_000);
     }

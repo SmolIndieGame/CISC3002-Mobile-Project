@@ -68,10 +68,21 @@
         android:text="@string/start_the_quiz" />
 
     <ProgressBar
-        android:id="@+id/main_progress_questions"
+        android:id="@+id/main_loading_questions"
         style="?android:attr/progressBarStyle"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content" />
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="32dp"
+        android:layout_marginBottom="16dp" />
+
+    <ProgressBar
+        android:id="@+id/main_progress_questions"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="32dp"
+        android:layout_marginBottom="16dp"
+        android:padding="8dp" />
 
     <TextView
         android:layout_width="match_parent"

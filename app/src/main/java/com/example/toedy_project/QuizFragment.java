@@ -1,12 +1,16 @@
 package com.example.toedy_project;
 
 import android.os.Bundle;
-
-import androidx.fragment.app.Fragment;
-
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageView;
+
+import androidx.fragment.app.Fragment;
+
+import com.bumptech.glide.Glide;
+
+import java.io.File;
 
 /**
  * A simple {@link Fragment} subclass.
@@ -59,6 +63,11 @@ public class QuizFragment extends Fragment {
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
         // Inflate the layout for this fragment
-        return inflater.inflate(R.layout.fragment_quiz, container, false);
+        View view = inflater.inflate(R.layout.fragment_quiz, container, false);
+        ImageView image = view.findViewById(R.id.image_cover);
+        Glide
+                .with(this)
+                .load(new File(requireContext().getFilesDir(), "hint/0")).into(image);
+        return view;
     }
 }

@@ -2,12 +2,14 @@ package com.example.toedy_project;
 
 import android.app.Application;
 
-public class GlobalStates extends Application {
-    public String auth0AccessToken;
-    public String userId;
-    public String userName;
+import androidx.annotation.Nullable;
 
-    public QuestionObj questions;
-    public ScoreObj scores;
+public class GlobalStates extends Application {
+    @Nullable public String auth0AccessToken;
+    @Nullable public String userId;
+    @Nullable public String userName;
+
+    @Nullable public QuestionObj questions;
+    @Nullable public ScoreObj scores;
 }
 
