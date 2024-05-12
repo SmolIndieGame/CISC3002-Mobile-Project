@@ -6,10 +6,11 @@ public class ScoreObj {
     public List<Score> scores;
 
     static class Score {
-        public String username;
+        public String userId;
+        public String name;
         public double score;
         public int correct_answers;
         public int hint_used;
-        public double time_left;
+        public int time_left;
     }
 }

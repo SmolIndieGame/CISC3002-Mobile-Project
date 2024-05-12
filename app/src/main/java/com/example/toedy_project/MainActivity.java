@@ -31,6 +31,8 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 
 public class MainActivity extends AppCompatActivity {
+    public static final int QUIZ_QUESTION_COUNT = 8;
+
     GlobalStates states;
     Utils.LoopHandle scoreLoop;
 
@@ -39,6 +41,8 @@ public class MainActivity extends AppCompatActivity {
     ProgressBar startProgress;
     RecyclerView scoreList;
     ScoreAdapter scoreAdapter;
+
+    DownloadQuestionsTask downloadQuestionsTask;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -61,21 +65,7 @@ public class MainActivity extends AppCompatActivity {
 
         startButton = findViewById(R.id.main_button_start);
         startButton.setVisibility(View.GONE);
-        startButton.setOnClickListener(view -> {
-            Intent intent = new Intent(this, QuizActivity.class);
-            startActivity(intent);
-            finish();
-
-//            if (states.scores == null)
-//                return;
-//            ScoreObj.Score score = new ScoreObj.Score();
-//            score.username = states.userName;
-//            score.score = new Random().nextDouble();
-//            states.scores.scores.add(score);
-//            states.scores.scores.sort(Comparator.comparingDouble(o -> -o.score));
-//            Fetches.putScores(this, getString(R.string.jsonbin_access_key), states.scores,
-//                    null, null);
-        });
+        startButton.setOnClickListener(v -> Utils.startQuiz(this));
 
         startLoading = findViewById(R.id.main_loading_questions);
         startProgress = findViewById(R.id.main_progress_questions);
@@ -140,8 +130,8 @@ public class MainActivity extends AppCompatActivity {
         startProgress.setVisibility(View.VISIBLE);
         startLoading.setVisibility(View.GONE);
 
-        DownloadQuestionsTask task = new DownloadQuestionsTask(this);
-        task.execute(questions);
+        downloadQuestionsTask = new DownloadQuestionsTask(this);
+        downloadQuestionsTask.execute(questions);
     }
 
     @Override
@@ -153,7 +143,7 @@ public class MainActivity extends AppCompatActivity {
                     scoreAdapter.setScores(
                             scores.scores.stream().limit(10).collect(Collectors.toList()));
                     for (ScoreObj.Score score : scores.scores) {
-                        if (!Objects.equals(score.username, states.userName))
+                        if (!Objects.equals(score.userId, states.userId))
                             continue;
                         TextView scoreText = findViewById(R.id.main_text_score);
                         scoreText.setText(String.format(Locale.ENGLISH, "%.2f", score.score));
@@ -162,7 +152,9 @@ public class MainActivity extends AppCompatActivity {
                         TextView hintText = findViewById(R.id.main_text_hint);
                         hintText.setText(String.valueOf(score.hint_used));
                         TextView timeText = findViewById(R.id.main_text_time);
-                        timeText.setText(String.format(Locale.ENGLISH, "%.2f", score.time_left));
+                        int seconds = score.time_left % 60;
+                        int minutes = score.time_left / 60;
+                        timeText.setText(String.format(Locale.ENGLISH, "%02d:%02d", minutes, seconds));
                         break;
                     }
                 }, null);
@@ -175,6 +167,12 @@ public class MainActivity extends AppCompatActivity {
         if (scoreLoop != null)
             scoreLoop.dispose();
         super.onPause();
+    }
+
+    @Override
+    protected void onDestroy() {
+        downloadQuestionsTask.cancel(false);
+        super.onDestroy();
     }
 
     private void logout() {
@@ -206,14 +204,14 @@ public class MainActivity extends AppCompatActivity {
 
             rankText.setText(String.valueOf(position + 1));
             rankText.setTypeface(null, Typeface.BOLD_ITALIC);
-            if (score.username.length() < 12)
-                nameText.setText(score.username);
+            if (score.name.length() < 12)
+                nameText.setText(score.name);
             else
-                nameText.setText(score.username.substring(0, 7)
-                        + "..." + score.username.substring(score.username.length() - 4));
+                nameText.setText(score.name.substring(0, 7)
+                        + "..." + score.name.substring(score.name.length() - 4));
             scoreText.setText(String.format(Locale.ENGLISH, "%.2f", score.score));
 
-            if (Objects.equals(score.username, states.userName)) {
+            if (Objects.equals(states.userId, score.userId)) {
                 nameText.setTypeface(null, Typeface.BOLD);
                 scoreText.setTypeface(null, Typeface.BOLD);
                 return;

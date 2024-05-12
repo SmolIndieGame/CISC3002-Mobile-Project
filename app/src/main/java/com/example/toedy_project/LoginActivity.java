@@ -22,6 +22,7 @@ public class LoginActivity extends AppCompatActivity {
     private Auth0 auth0;
 
     private Button loginButton;
+    private Button offlineButton;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -31,6 +32,17 @@ public class LoginActivity extends AppCompatActivity {
         loginButton = findViewById(R.id.login_button_login);
         loginButton.setEnabled(false);
         loginButton.setOnClickListener(v -> login());
+
+        offlineButton = findViewById(R.id.login_button_offline);
+        offlineButton.setEnabled(false);
+        offlineButton.setOnClickListener(v -> {
+            GlobalStates states = (GlobalStates) getApplicationContext();
+            states.userId = "";
+            states.userName = "Offline User";
+            states.auth0AccessToken = "";
+            nextActivity();
+        });
+
         auth0 = new Auth0(this);
 
         if (getIntent().getBooleanExtra(EXTRA_CLEAR_CREDENTIALS, false)) {
@@ -58,6 +70,7 @@ public class LoginActivity extends AppCompatActivity {
             @Override
             public void onFailure(@NonNull AuthenticationException e) {
                 loginButton.setEnabled(true);
+                offlineButton.setEnabled(true);
             }
         });
     }
@@ -90,12 +103,22 @@ public class LoginActivity extends AppCompatActivity {
     }
 
     private void logout() {
+        GlobalStates states = (GlobalStates) getApplicationContext();
+        if (states.userId == null || states.userId.isEmpty()) {
+            loginButton.setEnabled(true);
+            offlineButton.setEnabled(true);
+            states.userName = "";
+            states.auth0AccessToken = "";
+            return;
+        }
+
         WebAuthProvider.logout(auth0)
                 .withScheme("demo")
                 .start(this, new Callback<Void, AuthenticationException>() {
                     @Override
                     public void onSuccess(@Nullable Void payload) {
                         loginButton.setEnabled(true);
+                        offlineButton.setEnabled(true);
 
                         GlobalStates states = (GlobalStates) getApplicationContext();
                         states.userId = null;

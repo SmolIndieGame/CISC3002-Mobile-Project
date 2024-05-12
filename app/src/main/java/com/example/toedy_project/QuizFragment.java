@@ -1,135 +1,101 @@
 package com.example.toedy_project;
 
-import android.content.Context;
-import android.media.MediaPlayer;
-import android.net.Uri;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.Button;
 import android.widget.ImageView;
-import android.widget.SeekBar;
+import android.widget.RadioButton;
+import android.widget.RadioGroup;
 import android.widget.TextView;
 
+import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 
 import com.bumptech.glide.Glide;
+import com.bumptech.glide.load.engine.DiskCacheStrategy;
 
 import java.io.File;
-import java.util.Locale;
+import java.util.List;
+import java.util.Objects;
 
 public class QuizFragment extends Fragment {
-    MediaPlayer mediaPlayer;
-    Button play;
-    Button pause;
-    Button stop;
-    TextView time;
-    SeekBar seek;
-    boolean isTouchingSeek;
-    boolean suppressSeekCompleteEvent;
-    Utils.LoopHandle seekUpdater;
+    int position;
+    boolean hinted;
 
     public QuizFragment() {
+    }
+
+    public static QuizFragment newInstance(int position, boolean hinted) {
+        QuizFragment fragment = new QuizFragment();
+        Bundle args = new Bundle();
+        args.putInt("position", position);
+        args.putBoolean("hinted", hinted);
+        fragment.setArguments(args);
+        return fragment;
+    }
+
+    @Override
+    public void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        if (getArguments() != null) {
+            position = getArguments().getInt("position");
+            hinted = getArguments().getBoolean("hinted");
+        }
     }
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
-        // Inflate the layout for this fragment
         View root = inflater.inflate(R.layout.fragment_quiz, container, false);
 
-        Context context = requireContext();
-        File hint = new File(context.getFilesDir(), "hint/0");
-        File sound = new File(context.getFilesDir(), "sound/0");
+        QuizActivity activity = (QuizActivity) requireActivity();
+
+        assert activity.states.currentQuestions != null;
+        assert activity.states.currentAnswers != null;
+        QuestionObj.Question question = activity.states.currentQuestions.get(position);
+        List<String> answers = activity.states.currentAnswers;
 
         ImageView image = root.findViewById(R.id.quiz_image_hint);
-        Glide
-                .with(this)
-                .load(hint).into(image);
-
-        play = root.findViewById(R.id.quiz_button_start);
-        pause = root.findViewById(R.id.quiz_button_pause);
-        stop = root.findViewById(R.id.quiz_button_stop);
-        time = root.findViewById(R.id.quiz_text_sound);
-        seek = root.findViewById(R.id.quiz_seek_sound);
-
-        mediaPlayer = MediaPlayer.create(context, Uri.fromFile(sound));
-        mediaPlayer.setOnCompletionListener(player -> {
-            play.setEnabled(true);
-            pause.setEnabled(false);
-            stop.setEnabled(false);
+        if (hinted)
+            Glide.with(this)
+                    .load(new File(activity.getFilesDir(), "hint/" + question.id))
+                    .diskCacheStrategy(DiskCacheStrategy.NONE)
+                    .into(image);
+        image.setOnClickListener(v -> {
+            Log.d("myapp", "onCreateView: " + question.id);
+            Glide.with(this)
+                    .load(new File(activity.getFilesDir(), "hint/" + question.id))
+                    .diskCacheStrategy(DiskCacheStrategy.NONE)
+                    .into(image);
+            activity.viewHint(position);
         });
 
-        play.setEnabled(true);
-        pause.setEnabled(false);
-        stop.setEnabled(false);
-        play.setOnClickListener(v -> {
-            mediaPlayer.start();
-            play.setEnabled(false);
-            pause.setEnabled(true);
-            stop.setEnabled(true);
-        });
-        pause.setOnClickListener(v -> {
-            mediaPlayer.pause();
-            play.setEnabled(true);
-            pause.setEnabled(false);
-            stop.setEnabled(true);
-        });
-        stop.setOnClickListener(v -> {
-            mediaPlayer.pause();
-            suppressSeekCompleteEvent = true;
-            mediaPlayer.seekTo(0);
-            play.setEnabled(true);
-            pause.setEnabled(false);
-            stop.setEnabled(false);
-        });
+        TextView questionText = root.findViewById(R.id.quiz_text_question);
+        questionText.setText(question.question);
 
-        seek.setMax(mediaPlayer.getDuration());
-        seek.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-            @Override
-            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-            }
+        RadioGroup group = root.findViewById(R.id.quiz_options);
+        group.removeAllViews();
+        for (String option : question.options) {
+            RadioButton radioButton = new RadioButton(activity);
+            group.addView(radioButton);
+            radioButton.setLayoutParams(new RadioGroup.LayoutParams(
+                    RadioGroup.LayoutParams.MATCH_PARENT,
+                    RadioGroup.LayoutParams.WRAP_CONTENT));
 
-            @Override
-            public void onStartTrackingTouch(SeekBar seekBar) {
-                isTouchingSeek = true;
-            }
+            radioButton.setText(option);
+            if (Objects.equals(answers.get(position), option))
+                radioButton.performClick();
+            radioButton.setOnCheckedChangeListener((v, isChecked) -> {
+                if (!isChecked)
+                    return;
+                answers.set(position, option);
+            });
 
-            @Override
-            public void onStopTrackingTouch(SeekBar seekBar) {
-                isTouchingSeek = false;
-                requireActivity().runOnUiThread(() -> {
-                    if (!mediaPlayer.isPlaying()) {
-                        mediaPlayer.start();
-                        play.setEnabled(false);
-                        pause.setEnabled(true);
-                        stop.setEnabled(true);
-                    }
-                    mediaPlayer.seekTo(seekBar.getProgress());
-                });
-            }
-        });
+            radioButton.setChecked(Objects.equals(answers.get(position), option));
+        }
 
         return root;
-    }
-
-    @Override
-    public void onResume() {
-        super.onResume();
-        seekUpdater = new Utils.LoopHandle(() -> {
-            if (!isTouchingSeek)
-                seek.setProgress(mediaPlayer.getCurrentPosition(), false);
-            final int position = mediaPlayer.getCurrentPosition();
-            final int seconds = position / 1000 % 60;
-            final int minutes = position / 1000 / 60;
-            time.setText(String.format(Locale.ENGLISH, "%02d:%02d", minutes, seconds));
-        }, 100);
-    }
-
-    @Override
-    public void onPause() {
-        seekUpdater.dispose();
-        super.onPause();
     }
 }

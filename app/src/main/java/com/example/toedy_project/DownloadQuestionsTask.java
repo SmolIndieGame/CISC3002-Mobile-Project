@@ -12,6 +12,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.lang.ref.WeakReference;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -34,7 +35,6 @@ public class DownloadQuestionsTask extends AsyncTask<QuestionObj, Integer, Boole
 
         if (!isSuccessful) {
             Toast.makeText(act, "Download questions failed", Toast.LENGTH_SHORT).show();
-            return;
         }
 
         act.startButton.setVisibility(View.VISIBLE);
@@ -54,6 +54,11 @@ public class DownloadQuestionsTask extends AsyncTask<QuestionObj, Integer, Boole
     @Override
     protected void onCancelled() {
         super.onCancelled();
+
+        MainActivity act = activityRef.get();
+        if (act == null) return;
+
+        Toast.makeText(act, "Question downloads cancelled", Toast.LENGTH_SHORT).show();
     }
 
     @Override
@@ -62,7 +67,9 @@ public class DownloadQuestionsTask extends AsyncTask<QuestionObj, Integer, Boole
         if (act == null) return null;
 
         QuestionObj questions = objects[0];
-        OkHttpClient client = new OkHttpClient();
+        OkHttpClient client = new OkHttpClient.Builder()
+                .callTimeout(60, TimeUnit.SECONDS)
+                .build();
         List<QuestionObj.Question> questionList = questions.questions;
 
 
@@ -74,6 +81,9 @@ public class DownloadQuestionsTask extends AsyncTask<QuestionObj, Integer, Boole
                 File file = new File(dir, String.valueOf(i));
                 downloadFile(client, question.hint_url, file);
                 publishProgress(i + 1);
+
+                if (isCancelled())
+                    return false;
             }
 
             for (int i = 0; i < questionList.size(); i++) {
@@ -83,6 +93,9 @@ public class DownloadQuestionsTask extends AsyncTask<QuestionObj, Integer, Boole
                 File file = new File(dir, String.valueOf(i));
                 downloadFile(client, question.sound_url, file);
                 publishProgress(questionList.size() + i + 1);
+
+                if (isCancelled())
+                    return false;
             }
 
             Gson gson = new Gson();

@@ -17,4 +17,20 @@
     <string name="hint_used">Hint Used:</string>
     <string name="time_left">Time Left:</string>
     <string name="place_holder">---</string>
+    <string name="start">Start</string>
+    <string name="pause">Pause</string>
+    <string name="stop">Stop</string>
+    <string name="previous">Previous</string>
+    <string name="next">Next</string>
+    <string name="submit">Submit</string>
+    <string name="remain_time">Remain Time</string>
+    <string name="hint">hint</string>
+    <string name="quiz">Quiz</string>
+    <string name="offline">Offline</string>
+    <string name="quiz_finished">Quiz Finished</string>
+    <string name="back">Back to Main</string>
+    <string name="start_again">Start Again</string>
+    <string name="your_score">Your Score</string>
+    <string name="your_old_high_score">Your Old High-score</string>
+    <string name="congrats">Congrats</string>
 </resources>
