@@ -91,7 +91,7 @@ public class LoginActivity extends AppCompatActivity {
                     public void onSuccess(@Nullable final Credentials credentials) {
                         assert credentials != null;
                         GlobalStates states = (GlobalStates) getApplicationContext();
-                        states.userId = credentials.getIdToken();
+                        states.userId = credentials.getUser().getId();
                         states.userName = credentials.getUser().getName();
                         states.auth0AccessToken = credentials.getAccessToken();
                         getPreferences(0).edit()
